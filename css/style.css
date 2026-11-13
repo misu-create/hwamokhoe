@@ -1,0 +1,1287 @@
+/* ==========================================================================
+   화목회 가족 웹사이트 - 따뜻하고 정감 넘치는 감성 디자인 시스템
+   (스마트폰 320~430px 최적화, Safe Area 완벽 대응, 50~70대 시니어 가독성)
+   ========================================================================== */
+
+:root {
+  /* [배경 및 공간감] 따뜻한 햇살과 아이보리/크림 톤 */
+  --bg-page: #fbf9f5;            /* 은은하고 포근한 웜 아이보리 */
+  --bg-card: #ffffff;
+  --bg-warm-tint: #f6f3ed;       /* 부드러운 밀크티/린넨 톤 박스 */
+  --border-soft: #eae5dc;        /* 자극 없는 온화한 베이지 그레이 테두리 */
+  --border-focus: #3b82f6;
+
+  /* [메인 컬러] 차가운 파랑 탈피 -> 정갈하고 신뢰감 있는 웜 네이비 & 소프트 코발트 */
+  --brand-navy: #1e3a5f;         /* 중후하고 포근한 딥 네이비 */
+  --brand-blue: #2563eb;         /* 화사한 스카이 블루 */
+  --brand-blue-light: #eff6ff;   /* 연한 파스텔 블루 */
+
+  /* [자연 & 나눔 컬러] 포레스트 세이지 그린 (수입/완료) */
+  --sage-green: #15803d;         /* 싱그러운 나뭇잎 초록 */
+  --sage-bg: #f0fdf4;
+  --sage-border: #bbf7d0;
+
+  /* [온기 & 알림 컬러] 테라코타 로즈 레드 (지출/미납) - 자극적이지 않고 정돈된 톤 */
+  --terracotta-red: #dc2626;
+  --terracotta-bg: #fff1f2;
+  --terracotta-border: #fecdd3;
+
+  /* [가족 모임 & 카카오] 따스한 햇살 옐로우 & 골드 */
+  --warm-gold: #b45309;
+  --warm-gold-bg: #fefce8;
+  --warm-gold-border: #fef08a;
+  --kakao-yellow: #fee500;
+  --kakao-text: #191919;
+
+  /* [텍스트 & 가독성] 시니어의 눈이 편안한 고대비 차콜 */
+  --text-primary: #1c1917;       /* 짙고 선명한 웜 블랙 */
+  --text-secondary: #57534e;     /* 부드러운 스톤 차콜 */
+  --text-muted: #78716c;         /* 보조 설명용 온화한 회색 */
+
+  /* [시니어 맞춤 크기 규격] */
+  --font-base: 19px;
+  --font-sub: 16px;
+  --font-title: 25px;
+  --font-amount: 32px;
+  --btn-min-height: 58px;
+
+  /* [곡률 및 그림자] 각진 모서리를 둥글게, 자연스러운 엠보싱 섀도우 */
+  --radius-card: 20px;
+  --radius-btn: 16px;
+  --radius-pill: 9999px;
+  --shadow-warm: 0 10px 25px -3px rgba(44, 39, 32, 0.05), 0 4px 10px -2px rgba(44, 39, 32, 0.03);
+  --shadow-floating: 0 14px 30px rgba(37, 99, 235, 0.15);
+}
+
+/* 기본 리셋 및 모바일 가로스크롤 차단 */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* 가로 스크롤 절대 방지 */
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif;
+  font-size: var(--font-base);
+  line-height: 1.65;
+  color: var(--text-primary);
+  background-color: #ede8df; /* 외부 바탕도 편안한 웜 샌드베이지 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  /* iPhone 노치 및 하단 홈바 Safe Area 패딩 */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* 스마트폰 전용 컨테이너 (최대폭 600px 중앙 배치) */
+.app-container {
+  width: 100%;
+  max-width: 600px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background-color: var(--bg-page);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* 시범 안내 배너 (친절하고 부드러운 말투) */
+.notice-banner {
+  background-color: #fef9c3;
+  color: #854d0e;
+  padding: 12px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  border-bottom: 1.5px solid #fde047;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   감성 비주얼 배너 시스템 (각 화면별 테마 이미지 & 웜 오버레이)
+   -------------------------------------------------------------------------- */
+
+.hero-banner {
+  position: relative;
+  width: 100%;
+  padding: 34px 22px 30px;
+  color: #ffffff;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  border-bottom-left-radius: 26px;
+  border-bottom-right-radius: 26px;
+  box-shadow: 0 8px 24px rgba(30, 41, 59, 0.15);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 배너 위 따뜻하고 부드러운 감성 그라데이션 오버레이 */
+.hero-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    140deg,
+    rgba(26, 44, 76, 0.82) 0%,
+    rgba(37, 72, 122, 0.72) 50%,
+    rgba(67, 56, 43, 0.65) 100%
+  );
+  z-index: 1;
+}
+
+/* 배너 내부 텍스트 콘텐츠 */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+/* 첫 화면(홈) 메인 웰컴 배너 */
+.hero-banner.home-banner {
+  /* 따뜻한 햇살 아래 가족 피크닉/자연 숲길 감성 비주얼 */
+  background-image: url('https://images.unsplash.com/photo-1511895426328-dc8714191300?w=900&auto=format&fit=crop&q=80');
+  padding: 40px 22px 36px;
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fffbeb;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.5px;
+}
+
+.hero-title {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.hero-subtitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fef08a; /* 따스한 햇살 노란색 */
+  margin-bottom: 10px;
+  letter-spacing: -0.3px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.hero-desc {
+  font-size: 16px;
+  color: #f1f5f9;
+  font-weight: 500;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
+/* [서브화면별 테마 배너 비주얼] */
+/* 1. 회비 현황 배너 (신뢰감 & 따뜻한 세이지 그린) */
+.hero-banner.fee-banner {
+  background-image: url('https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?w=900&auto=format&fit=crop&q=80');
+}
+.hero-banner.fee-banner::before {
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.85) 0%, rgba(30, 58, 95, 0.75) 100%);
+}
+
+/* 2. 회계 장부 배너 (정갈하고 따뜻한 원목 서재) */
+.hero-banner.ledger-banner {
+  background-image: url('https://images.unsplash.com/photo-1450133064473-71024230f91b?w=900&auto=format&fit=crop&q=80');
+}
+.hero-banner.ledger-banner::before {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.88) 0%, rgba(78, 62, 49, 0.78) 100%);
+}
+
+/* 3. 가족 모임 배너 (기대감 넘치는 소풍 & 만찬) */
+.hero-banner.meeting-banner {
+  background-image: url('https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&auto=format&fit=crop&q=80');
+}
+.hero-banner.meeting-banner::before {
+  background: linear-gradient(135deg, rgba(146, 64, 14, 0.85) 0%, rgba(30, 58, 138, 0.78) 100%);
+}
+
+/* 4. 공지사항 배너 (따뜻한 편지와 안부) */
+.hero-banner.notice-banner-hero {
+  background-image: url('https://images.unsplash.com/photo-1516541196182-6bdb0516ed27?w=900&auto=format&fit=crop&q=80');
+}
+.hero-banner.notice-banner-hero::before {
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.85) 0%, rgba(76, 29, 149, 0.72) 100%);
+}
+
+/* 서브화면 공통 '처음으로' 네비게이션 헤더 바 */
+.nav-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background-color: var(--bg-card);
+  border-bottom: 1.5px solid var(--border-soft);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.btn-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background-color: #f1f5f9;
+  color: var(--brand-navy);
+  border: 1.5px solid #cbd5e1;
+  border-radius: var(--radius-pill);
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 48px;
+  transition: all 0.15s ease;
+}
+
+.btn-home:active {
+  background-color: #e2e8f0;
+  transform: scale(0.98);
+}
+
+.current-screen-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--brand-navy);
+}
+
+/* 메인 콘텐츠 영역 */
+.main-content {
+  flex: 1;
+  padding: 22px 18px 45px;
+}
+
+/* 화면 전환 애니메이션 */
+.view-section {
+  display: none;
+  animation: softFadeIn 0.25s ease-out;
+}
+
+.view-section.active {
+  display: block;
+}
+
+@keyframes softFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   첫 화면 (홈) 스타일
+   -------------------------------------------------------------------------- */
+
+/* 따뜻한 환영 안내 카드 */
+.welcome-intro-box {
+  background: linear-gradient(135deg, #ffffff 0%, #fefce8 100%);
+  border: 1.5px solid #fef08a;
+  border-radius: var(--radius-card);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-warm);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.welcome-intro-icon {
+  font-size: 36px;
+  flex-shrink: 0;
+}
+
+.welcome-intro-text {
+  font-size: 17px;
+  color: #713f12;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* 회비 잔액 카드 (온화한 엠보싱 디자인) */
+.balance-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f9f8f5 100%);
+  border: 2px solid #e7e0d3;
+  border-radius: 24px;
+  padding: 26px 20px;
+  text-align: center;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-warm);
+  position: relative;
+  overflow: hidden;
+}
+
+.balance-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b);
+}
+
+.balance-card .balance-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.balance-card .balance-amount {
+  font-size: var(--font-amount);
+  font-weight: 900;
+  color: var(--brand-navy);
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+
+.balance-card .balance-update {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 4대 주요 메뉴 그리드 (정감 넘치는 파스텔 톤 카드) */
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.menu-card-btn {
+  background-color: var(--bg-card);
+  border: 1.5px solid var(--border-soft);
+  border-radius: 22px;
+  padding: 24px 14px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 128px;
+  transition: all 0.18s ease;
+  box-shadow: var(--shadow-warm);
+  position: relative;
+}
+
+.menu-card-btn:active, .menu-card-btn:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
+  background: #ffffff;
+}
+
+.menu-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+/* 메뉴 카드별 부드러운 포인트 배경 */
+.menu-card-btn:nth-child(1) .menu-icon-wrap { background-color: #eff6ff; }
+.menu-card-btn:nth-child(2) .menu-icon-wrap { background-color: #f0fdf4; }
+.menu-card-btn:nth-child(3) .menu-icon-wrap { background-color: #fefce8; }
+.menu-card-btn:nth-child(4) .menu-icon-wrap { background-color: #fdf2f8; }
+
+.menu-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.menu-desc {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* 최근 공지사항 요약 박스 (소식지 느낌) */
+.recent-notice-box {
+  background-color: #ffffff;
+  border: 1.5px solid #fed7aa;
+  border-radius: var(--radius-card);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  box-shadow: var(--shadow-warm);
+  transition: transform 0.1s ease;
+}
+
+.recent-notice-box:active {
+  transform: scale(0.99);
+}
+
+.recent-notice-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #c2410c;
+  margin-bottom: 6px;
+}
+
+.recent-notice-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* 카카오톡 공유 버튼 (고급스럽고 편안한 옐로우) */
+.btn-kakao-share {
+  background-color: var(--kakao-yellow);
+  color: var(--kakao-text);
+  border: none;
+  border-radius: 18px;
+  width: 100%;
+  min-height: 60px;
+  font-size: 20px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(250, 204, 21, 0.35);
+  margin-bottom: 22px;
+  transition: transform 0.1s ease;
+}
+
+.btn-kakao-share:active {
+  transform: scale(0.98);
+}
+
+.kakao-icon {
+  font-size: 26px;
+}
+
+/* 총무 관리 링크 */
+.admin-link-area {
+  text-align: center;
+  padding: 16px 0 8px;
+  border-top: 1.5px dashed var(--border-soft);
+}
+
+.admin-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+}
+
+.admin-link-btn:active {
+  background-color: var(--bg-warm-tint);
+  color: var(--brand-navy);
+}
+
+/* --------------------------------------------------------------------------
+   공통 서브 화면 스타일
+   -------------------------------------------------------------------------- */
+
+.section-card {
+  background-color: var(--bg-card);
+  border: 1.5px solid var(--border-soft);
+  border-radius: 22px;
+  padding: 22px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-warm);
+}
+
+.section-card-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--brand-navy);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 월 선택 컨트롤 (< 2026년 11월 >) */
+.month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #ffffff;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-warm);
+}
+
+.btn-month-nav {
+  background-color: #f8fafc;
+  color: var(--brand-navy);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  min-width: 52px;
+  min-height: 48px;
+  font-size: 22px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.btn-month-nav:active {
+  background-color: #e2e8f0;
+}
+
+.current-month-display {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--brand-navy);
+}
+
+/* 회비 현황 통계 카드 */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.status-stat-card {
+  padding: 18px 14px;
+  border-radius: 18px;
+  border: 1.5px solid transparent;
+  text-align: center;
+}
+
+.status-stat-card.paid {
+  background-color: var(--sage-bg);
+  border-color: var(--sage-border);
+}
+
+.status-stat-card.unpaid {
+  background-color: var(--terracotta-bg);
+  border-color: var(--terracotta-border);
+}
+
+.status-stat-card.summary {
+  background-color: #ffffff;
+  border-color: var(--border-soft);
+  grid-column: span 2;
+  box-shadow: var(--shadow-warm);
+}
+
+.stat-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.stat-value.paid-color {
+  color: var(--sage-green);
+}
+
+.stat-value.unpaid-color {
+  color: var(--terracotta-red);
+}
+
+.stat-subtext {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* 회비 상세 정보 리스트 */
+.info-row-list {
+  background-color: #ffffff;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-warm);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 18px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.info-row-value {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.info-row-value.highlight-red {
+  color: var(--terracotta-red);
+  font-size: 20px;
+}
+
+.info-row-value.highlight-green {
+  color: var(--sage-green);
+  font-size: 20px;
+}
+
+/* 익명 안내 문구 */
+.privacy-tip {
+  background-color: #f0fdf4;
+  border-left: 4px solid #22c55e;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: #166534;
+  border-radius: 4px 12px 12px 4px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   회계 장부 화면 스타일
+   -------------------------------------------------------------------------- */
+
+.ledger-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.btn-ledger-tab {
+  flex: 1;
+  min-height: 48px;
+  font-size: 17px;
+  font-weight: 700;
+  background-color: #ffffff;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-ledger-tab.active {
+  background-color: var(--brand-navy);
+  color: #ffffff;
+  border-color: var(--brand-navy);
+  box-shadow: 0 4px 10px rgba(30, 58, 95, 0.2);
+}
+
+.ledger-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 10px;
+  border-bottom: 1.5px solid #f5f3ef;
+}
+
+.ledger-item:last-child {
+  border-bottom: none;
+}
+
+.ledger-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.ledger-date {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ledger-desc {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.ledger-right {
+  text-align: right;
+}
+
+.ledger-amount {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.ledger-amount.income {
+  color: var(--sage-green);
+}
+
+.ledger-amount.expense {
+  color: var(--terracotta-red);
+}
+
+.ledger-category {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   가족 모임 화면 스타일 (초대장 감성 강화)
+   -------------------------------------------------------------------------- */
+
+.event-banner-card {
+  background: linear-gradient(135deg, #78350f 0%, #b45309 60%, #d97706 100%);
+  color: #ffffff;
+  border-radius: 24px;
+  padding: 26px 22px;
+  margin-bottom: 22px;
+  box-shadow: 0 10px 25px rgba(180, 83, 9, 0.22);
+  position: relative;
+  overflow: hidden;
+}
+
+.event-dday-badge {
+  display: inline-block;
+  background-color: #fef08a;
+  color: #713f12;
+  font-size: 16px;
+  font-weight: 900;
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 12px;
+}
+
+.event-main-title {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.35;
+  margin-bottom: 16px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.event-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #fffbeb;
+}
+
+.event-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.event-detail-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+/* 여행 일정 타임라인 */
+.timeline-item {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 18px;
+  margin-left: 10px;
+  padding-bottom: 22px;
+  position: relative;
+}
+
+.timeline-item:last-child {
+  border-left: 3px solid transparent;
+  padding-bottom: 0;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 4px;
+  width: 15px;
+  height: 15px;
+  background-color: #f59e0b;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.timeline-date {
+  font-size: 16px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.timeline-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 2px 0 6px;
+}
+
+.timeline-body {
+  font-size: 17px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  background-color: #faf9f6;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   공지사항 화면 스타일 (따뜻한 가족 소식지 느낌)
+   -------------------------------------------------------------------------- */
+
+.notice-category-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+}
+
+.notice-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.btn-category-chip {
+  padding: 8px 18px;
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  background-color: #ffffff;
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-soft);
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 44px;
+  transition: all 0.15s;
+}
+
+.btn-category-chip.active {
+  background-color: var(--brand-navy);
+  color: #ffffff;
+  border-color: var(--brand-navy);
+}
+
+.notice-card-item {
+  background-color: #ffffff;
+  border: 1.5px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-warm);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.notice-card-item:active {
+  transform: scale(0.99);
+  background-color: #fdfcfa;
+}
+
+.notice-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.notice-badge.fee { background-color: #eff6ff; color: #1e40af; }
+.notice-badge.meeting { background-color: #fefce8; color: #854d0e; }
+.notice-badge.trip { background-color: #ecfdf5; color: #166534; }
+.notice-badge.family { background-color: #fff1f2; color: #9f1239; }
+
+.notice-item-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.notice-item-snippet {
+  font-size: 17px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.notice-item-date {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 모달 레이어 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(28, 25, 23, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-box {
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 24px;
+  padding: 26px 22px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.35);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+}
+
+.modal-content-body {
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  margin-bottom: 22px;
+}
+
+/* 토스트 알림 */
+.toast-notice {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #292524;
+  color: #fefce8;
+  padding: 14px 26px;
+  border-radius: var(--radius-pill);
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  z-index: 200;
+  display: none;
+  text-align: center;
+  line-height: 1.4;
+  animation: toastFade 0.3s ease;
+}
+
+.toast-notice.show {
+  display: block;
+}
+
+@keyframes toastFade {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 푸터 */
+.site-footer {
+  background-color: #f3efe6;
+  border-top: 1.5px solid var(--border-soft);
+  padding: 26px 20px calc(26px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.site-footer p {
+  margin-bottom: 6px;
+}
+
+/* ==========================================================================
+   스마트폰 전용 최적화 및 PWA 홈 화면 추가 가이드 (320~430px 화면 대응)
+   ========================================================================== */
+
+/* 카카오톡으로 가족 초대하기 대형 버튼 (첫 화면 전용) */
+.btn-kakao-invite {
+  background-color: var(--kakao-yellow);
+  color: var(--kakao-text);
+  border: 2px solid #eab308;
+  border-radius: 20px;
+  width: 100%;
+  min-height: 64px;
+  font-size: 21px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(234, 179, 8, 0.35);
+  margin-bottom: 18px;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-kakao-invite:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.25);
+}
+
+.btn-kakao-invite .invite-badge {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  letter-spacing: -0.3px;
+}
+
+/* 스마트폰 홈 화면 바로가기 안내 박스 */
+.pwa-shortcut-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #cbd5e1;
+  border-radius: var(--radius-card);
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: var(--shadow-warm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pwa-shortcut-card:active {
+  background-color: #f1f5f9;
+  transform: scale(0.99);
+}
+
+.pwa-shortcut-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pwa-app-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: var(--brand-navy);
+  color: #fef08a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(30, 58, 95, 0.2);
+}
+
+.pwa-shortcut-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.pwa-shortcut-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.pwa-shortcut-btn-label {
+  padding: 8px 14px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1.5px solid #bfdbfe;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* 홈 화면 추가 가이드 모달 */
+.pwa-step-box {
+  background-color: #faf9f6;
+  border: 1.5px solid #e7e0d3;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.pwa-step-os {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--brand-navy);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pwa-step-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.pwa-step-desc b {
+  color: #b45309;
+}
+
+/* --------------------------------------------------------------------------
+   소형 스마트폰 (320px ~ 380px) 미디어 쿼리 완벽 대응
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 380px) {
+  :root {
+    --font-base: 17px;
+    --font-title: 22px;
+    --font-amount: 28px;
+    --btn-min-height: 54px;
+  }
+
+  .main-content {
+    padding: 16px 12px 35px;
+  }
+
+  .hero-banner {
+    padding: 28px 16px 24px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+  }
+
+  .hero-subtitle {
+    font-size: 18px;
+  }
+
+  .menu-grid {
+    gap: 10px;
+  }
+
+  .menu-card-btn {
+    padding: 18px 8px;
+    min-height: 115px;
+  }
+
+  .menu-title {
+    font-size: 18px;
+  }
+
+  .menu-desc {
+    font-size: 13px;
+  }
+
+  .status-grid {
+    gap: 10px;
+  }
+
+  .status-stat-card {
+    padding: 14px 8px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .info-row {
+    font-size: 16px;
+  }
+
+  .btn-kakao-invite {
+    font-size: 19px;
+    min-height: 58px;
+  }
+
+  .btn-kakao-share {
+    font-size: 18px;
+    min-height: 56px;
+  }
+}

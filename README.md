@@ -79,7 +79,21 @@ hwamokhoe/
 ### 1. 로컬에서 바로 실행
 별도의 빌드 과정 없이 웹 브라우저(크롬, 엣지 등)에서 `index.html`을 더블 클릭하여 바로 열 수 있습니다.
 
-### 2. Cloudflare Pages 무료 배포
+### 2. GitHub Pages 배포 시 디자인 적용 안내
+GitHub Pages(`https://<username>.github.io/<repo>/`)는 서브디렉토리 경로를 사용하므로, 다음 설정이 적용되어 있습니다:
+- `.nojekyll` 파일 생성 완료 (Jekyll 빌드 간섭 완전 차단)
+- 모든 리소스 경로를 명시적 상대경로(`./css/style.css`, `./js/app.js` 등)로 표준화
+- 슬래시 누락(`/hwamokhoe` 접속) 시에도 404가 나지 않도록 자동 Trailing Slash 정규화 스크립트 탑재
+- `404.html` 자동 리다이렉트 파일 포함
+
+**GitHub 반영 명령어:**
+```bash
+git add .
+git commit -m "fix: resolve GitHub Pages CSS/JS path issue with relative paths and .nojekyll"
+git push origin main
+```
+
+### 3. Cloudflare Pages 무료 배포
 1. GitHub 리포지토리에 본 폴더의 파일들을 업로드합니다.
 2. [Cloudflare 대시보드](https://dash.cloudflare.com/)에 로그인합니다.
 3. **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**을 선택합니다.
