@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>화목회 - 총무 관리자 시스템</title>
+  
+  <!-- 웹폰트 Pretendard -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  
+  <!-- 공통 및 관리자 스타일시트 -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+
+  <!-- 카카오 SDK -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container" style="max-width: 720px;">
+    
+    <!-- 총무 관리 상단 헤더 -->
+    <header class="admin-header">
+      <div class="admin-header-title">
+        <span>🔐</span>
+        <span>화목회 총무 관리</span>
+        <span class="admin-badge">총무 전용</span>
+      </div>
+      <div>
+        <a href="index.html" class="btn-home" style="padding: 6px 12px; font-size: 16px; min-height: 40px; background:#ffffff; color:#1e3a8a; border:none;">
+          가족홈 가기 🏠
+        </a>
+      </div>
+    </header>
+
+    <!-- 모드 전환 바 (테스트 모드 vs 실제 운영 모드) -->
+    <div class="mode-toggle-bar">
+      <div>
+        <span id="current-mode-badge" class="mode-badge test">🧪 테스트 모드 (예시 데이터)</span>
+      </div>
+      <button id="btn-toggle-db-mode" class="btn-toggle-mode" onclick="window.hwamokAdmin.toggleMode()">
+        운영 모드로 전환 ⚙️
+      </button>
+    </div>
+
+    <!-- 관리자 인증 뷰 (로그인 전) -->
+    <section id="admin-auth-view" class="main-content" style="padding-top: 40px;">
+      <div class="section-card" style="text-align: center; padding: 30px 20px;">
+        <span style="font-size: 48px; display:block; margin-bottom: 12px;">🔒</span>
+        <h2 style="font-size: 24px; font-weight: 900; margin-bottom: 8px;">총무 로그인</h2>
+        <p style="font-size: 17px; color: #64748b; margin-bottom: 24px;">
+          화목회 회계 및 회원 관리를 위해 총무 비밀번호를 입력해주세요.
+        </p>
+
+        <form id="admin-login-form" onsubmit="window.hwamokAdmin.handleLogin(event)">
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label">총무 관리자 비밀번호</label>
+            <input type="password" id="admin-password-input" class="form-control" placeholder="비밀번호 입력 (초기 기본값: 1234)" required autocomplete="current-password">
+            <div class="form-help">초기 임시 비밀번호는 <b>1234</b> 입니다. (로그인 후 변경 가능)</div>
+          </div>
+          <button type="submit" class="btn-primary-action">관리자 로그인</button>
+        </form>
+
+        <div style="margin-top: 24px; font-size: 15px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
+          * 향후 Firebase Authentication(이메일/비밀번호) 및 Custom Claims와 연동됩니다.
+        </div>
+      </div>
+    </section>
+
+    <!-- 관리자 대시보드 뷰 (로그인 후) -->
+    <main id="admin-dashboard-view" class="main-content" style="display: none;">
+
+      <!-- 총무 요약 대시보드 배너 -->
+      <div class="balance-card" style="border-color: #0f172a; margin-bottom: 16px;">
+        <div class="balance-label">현재 회비 총 잔액 (계산치)</div>
+        <div id="dash-total-balance" class="balance-amount" style="color:#1d4ed8;">0원</div>
+        <div id="dash-bank-match-status" style="font-size:16px; font-weight:700; margin-top:4px;">
+          통장 잔액 대조 중...
+        </div>
+      </div>
+
+      <!-- 10대 관리 서브메뉴 네비게이션 영역 -->
+      <div id="admin-menu-home-section">
+        <h3 style="font-size:20px; font-weight:800; margin-bottom:12px; color:#1e293b;">
+          ⚙️ 총무 관리 업무 선택 (10대 핵심 기능)
+        </h3>
+        
+        <div class="admin-menu-list">
+          <!-- 1. 회원 관리 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('member')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">1</span>
+              <div>
+                <div class="admin-menu-text">회원 관리</div>
+                <div class="admin-menu-sub">회원 명부 등록, 수정, 가족 관계 설정</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 2. 신규 회비 등록 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('fee-register')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">2</span>
+              <div>
+                <div class="admin-menu-text">회비 등록 (입금·미납)</div>
+                <div class="admin-menu-sub">정상·부분·선납·미납분 납부 등록</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 3. 지출 등록 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('expense')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">3</span>
+              <div>
+                <div class="admin-menu-text">지출 등록</div>
+                <div class="admin-menu-sub">모임 식대, 경조사비, 통장 출금 기록</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 4. 과거 회비 기록 가져오기 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('history-matrix')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">4</span>
+              <div>
+                <div class="admin-menu-text">과거 회비 기록 가져오기</div>
+                <div class="admin-menu-sub">회원별 월별 매트릭스 표 및 CSV 업로드</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 5. 초기 잔액 설정 및 회계 이관 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('migration')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">5</span>
+              <div>
+                <div class="admin-menu-text">초기 잔액 설정 및 이관</div>
+                <div class="admin-menu-sub">A/B안 이관 방식, 실제 은행 통장 잔액 비교</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 6. 공지사항 작성 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('notice-admin')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">6</span>
+              <div>
+                <div class="admin-menu-text">공지사항 작성·수정</div>
+                <div class="admin-menu-sub">가족 홈페이지 실시간 공지 등록</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 7. 가족 모임 등록 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('event-admin')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">7</span>
+              <div>
+                <div class="admin-menu-text">가족 모임 및 여행 등록</div>
+                <div class="admin-menu-sub">모임 일시, 장소, 여행 일정표 등록</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 8. 회칙·지원금 관리 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('rules')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">8</span>
+              <div>
+                <div class="admin-menu-text">회칙·지원금 관리</div>
+                <div class="admin-menu-sub">월회비, 3개월 미납 유예, 경조사 기준, 개정이력</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 9. 탈퇴·해산 정산 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('settlement')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">9</span>
+              <div>
+                <div class="admin-menu-text">탈퇴·해산 정산기</div>
+                <div class="admin-menu-sub">탈퇴 환급금 계산 및 해산 시 균등 분배</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 10. 자료 다운로드 (CSV) -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('download-csv')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num">10</span>
+              <div>
+                <div class="admin-menu-text">자료 다운로드 (CSV)</div>
+                <div class="admin-menu-sub">회원 명부, 납부 기록, 장부 엑셀 파일 저장</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+          <!-- 11. 관리자 권한 인계 및 시스템 설정 -->
+          <div class="admin-menu-btn" onclick="window.hwamokAdmin.openSection('handover')">
+            <div class="admin-menu-left">
+              <span class="admin-menu-num" style="background:#fef3c7; color:#b45309;">🔑</span>
+              <div>
+                <div class="admin-menu-text">총무 권한 인계 및 감사 로그</div>
+                <div class="admin-menu-sub">새 총무 권한 이전, 카카오 API 설정, 작업 이력</div>
+              </div>
+            </div>
+            <span class="admin-menu-arrow">›</span>
+          </div>
+
+        </div>
+
+        <button class="btn-secondary-action" onclick="window.hwamokAdmin.handleLogout()">
+          총무 로그아웃 🚪
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 1] 회원 관리
+           ================================================================= -->
+      <div id="sub-section-member" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">👥 회원 관리</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <!-- 신규 회원 추가 폼 -->
+        <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h4 style="font-size:18px; font-weight:800; margin-bottom:12px; color:#1e293b;">새 회원 등록</h4>
+          <div class="form-group">
+            <label class="form-label">이름 <span class="required">*</span></label>
+            <input type="text" id="member-name-input" class="form-control" placeholder="예: 김가족">
+          </div>
+          <div class="form-group">
+            <label class="form-label">가족 관계 구분 <span class="required">*</span></label>
+            <select id="member-relation-select" class="form-control">
+              <option value="본인">본인</option>
+              <option value="형제·자매">형제·자매</option>
+              <option value="사촌">사촌</option>
+              <option value="배우자">배우자</option>
+              <option value="자녀">자녀</option>
+              <option value="기타 가족">기타 가족</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">연락처 (선택)</label>
+            <input type="tel" id="member-phone-input" class="form-control" placeholder="예: 010-1234-5678">
+          </div>
+          <button class="btn-primary-action" onclick="window.hwamokAdmin.saveMember()">회원 등록하기</button>
+        </div>
+
+        <!-- 등록된 회원 목록 -->
+        <h4 style="font-size:18px; font-weight:800; margin-bottom:10px;">등록된 회원 명부 (<span id="member-count-badge">0</span>명)</h4>
+        <div id="admin-member-list-container">
+          <!-- 동적 렌더링 -->
+        </div>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 2] 신규 회비 등록 (입금·미납)
+           ================================================================= -->
+      <div id="sub-section-fee-register" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">💵 회비 등록 (입금·미납)</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">1. 회원 선택 <span class="required">*</span></label>
+          <select id="fee-reg-member" class="form-control">
+            <!-- 회원 옵션 동적 채움 -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">2. 납부 대상 연월 선택 <span class="required">*</span></label>
+          <input type="month" id="fee-reg-target-month" class="form-control">
+          <div class="form-help">미납된 과거 달이나 미래 선납 달을 선택할 수 있습니다.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">3. 납부 금액 (기본 20,000원) <span class="required">*</span></label>
+          <input type="number" id="fee-reg-amount" class="form-control" value="20000" step="1000">
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button type="button" class="btn-sm-action" onclick="document.getElementById('fee-reg-amount').value=20000">2만원(1달)</button>
+            <button type="button" class="btn-sm-action" onclick="document.getElementById('fee-reg-amount').value=40000">4만원(2달)</button>
+            <button type="button" class="btn-sm-action" onclick="document.getElementById('fee-reg-amount').value=60000">6만원(3달)</button>
+            <button type="button" class="btn-sm-action" onclick="document.getElementById('fee-reg-amount').value=0">0원(미납등록)</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">4. 실제 은행 입금일 <span class="required">*</span></label>
+          <input type="date" id="fee-reg-paid-date" class="form-control">
+          <div class="form-help">대상 월과 별개로 실제 통장에 돈이 들어온 날짜를 기록합니다.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">5. 입금 메모 / 비고</label>
+          <input type="text" id="fee-reg-note" class="form-control" placeholder="예: 카카오뱅크 입금, 이전 달 미납분 함께 납부">
+        </div>
+
+        <div class="form-group" style="background:#eff6ff; padding:12px 14px; border-radius:10px;">
+          <label style="font-size:17px; font-weight:700; color:#1e40af; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="fee-reg-add-ledger" checked style="width:20px; height:20px;">
+            <span>회계 장부 수입 내역에도 즉시 동시 반영 (잔액 증가)</span>
+          </label>
+        </div>
+
+        <button class="btn-primary-action" onclick="window.hwamokAdmin.submitFeePayment()">
+          회비 납부 저장하기
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 3] 지출 등록
+           ================================================================= -->
+      <div id="sub-section-expense" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">💳 지출 등록</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">지출 일자 <span class="required">*</span></label>
+          <input type="date" id="expense-date" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">지출 항목/분류 <span class="required">*</span></label>
+          <select id="expense-category" class="form-control">
+            <option value="모임식대">모임식대</option>
+            <option value="가족여행">가족여행/숙소</option>
+            <option value="경조사">경조사비/화환</option>
+            <option value="회비환급">탈퇴 회원 회비 환급</option>
+            <option value="기타경비">기타 운영 경비</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">지출 내역/목적 <span class="required">*</span></label>
+          <input type="text" id="expense-desc" class="form-control" placeholder="예: 2026년 송년 가족모임 식사비">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">지출 금액 (원) <span class="required">*</span></label>
+          <input type="number" id="expense-amount" class="form-control" placeholder="예: 150000" step="1000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">영수증 메모 / 비고</label>
+          <input type="text" id="expense-note" class="form-control" placeholder="예: 카드 영수증 보관 완료">
+        </div>
+
+        <button class="btn-primary-action" style="background-color:var(--expense-red);" onclick="window.hwamokAdmin.submitExpense()">
+          지출 저장하기 (잔액 차감)
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 4] 과거 회비 기록 가져오기 (매트릭스 표 & CSV)
+           ================================================================= -->
+      <div id="sub-section-history-matrix" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">📊 과거 회비 매트릭스 및 CSV</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="privacy-tip" style="background:#f0fdf4; border-color:#22c55e; color:#15803d;">
+          💡 <b>미납 보존 원칙:</b> 특정 월이 미납이고 이후 월이 납부되었더라도 미납 기록은 계속 보존됩니다. 나중에 미납분을 납부하면 해당 월에만 반영됩니다.
+        </div>
+
+        <!-- 매트릭스 조회 기간 선택기 -->
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+          <input type="month" id="matrix-start-month" class="form-control" value="2026-05" style="min-height:46px;">
+          <span style="font-weight:800;">~</span>
+          <input type="month" id="matrix-end-month" class="form-control" value="2026-11" style="min-height:46px;">
+          <button class="btn-sm-action" style="min-height:46px; background:#1d4ed8; color:#fff;" onclick="window.hwamokAdmin.refreshMatrix()">조회</button>
+        </div>
+
+        <!-- 매트릭스 표 컨테이너 -->
+        <div id="matrix-container">
+          <!-- 동적 렌더링 -->
+        </div>
+
+        <!-- CSV 일괄 가져오기 섹션 -->
+        <div style="margin-top:24px; padding:18px; border:2px dashed #93c5fd; border-radius:14px; background:#f8fafc;">
+          <h4 style="font-size:19px; font-weight:800; color:#1e40af; margin-bottom:8px;">📁 엑셀/CSV 일괄 업로드</h4>
+          <p style="font-size:15px; color:#64748b; margin-bottom:12px;">
+            기존 엑셀 장부 파일을 아래 표준 CSV 양식으로 변환하여 업로드하시면 중복 없이 한 번에 이관됩니다.
+          </p>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button class="btn-sm-action" onclick="window.hwamokCsv.downloadSampleCsv()">📥 표준 CSV 양식 다운로드</button>
+          </div>
+          
+          <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="window.hwamokAdmin.handleCsvSelect(event)">
+          <button class="btn-secondary-action" onclick="document.getElementById('csv-file-input').click()">
+            📄 CSV 파일 선택하여 미리보기
+          </button>
+
+          <!-- CSV 미리보기 및 검증 결과 컨테이너 -->
+          <div id="csv-preview-container" style="display:none; margin-top:16px;">
+            <!-- 동적 채움 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 5] 초기 잔액 설정 및 이관
+           ================================================================= -->
+      <div id="sub-section-migration" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">🏛️ 초기 잔액 설정 및 회계 이관</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <!-- 은행 통장 잔액 vs 계산 잔액 대조 카드 -->
+        <div class="balance-compare-box">
+          <h4 style="font-size:18px; font-weight:800; margin-bottom:10px;">🏦 실제 통장 잔액 대조 검증</h4>
+          <div class="compare-row">
+            <span>실제 은행 통장 잔액</span>
+            <span id="cmp-actual-bank" style="font-weight:900; color:#1e3a8a;">0원</span>
+          </div>
+          <div class="compare-row">
+            <span>장부 자동 계산 잔액</span>
+            <span id="cmp-calc-balance" style="font-weight:900;">0원</span>
+          </div>
+          <div class="compare-row">
+            <span>차액 (통장 - 장부)</span>
+            <span id="cmp-diff-amount" style="font-weight:900;">0원</span>
+          </div>
+          <div id="cmp-status-badge" class="compare-status-alert match">
+            ✅ 통장 잔액과 계산 잔액이 정확히 일치합니다.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">이관 방식 선택 <span class="required">*</span></label>
+          <select id="migration-type-select" class="form-control" onchange="window.hwamokAdmin.updateMigrationNotice()">
+            <option value="B">B안. 특정 기준일의 시작 잔액 등록 (권장)</option>
+            <option value="A">A안. 과거 전체 거래 내역 이관</option>
+          </select>
+          <div id="migration-type-help" class="form-help" style="color:#1d4ed8; font-weight:600;">
+            * B안: 기준일 이전 거래는 납부 이력으로만 보존하고 시작 잔액에 다시 합산하지 않습니다.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">회계 이관 기준일 <span class="required">*</span></label>
+          <input type="date" id="migration-base-date" class="form-control">
+          <div class="form-help">이 날짜 이후에 발생한 수입/지출만 시작 잔액에 가감됩니다.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">기준일 시작 잔액 (원) <span class="required">*</span></label>
+          <input type="number" id="migration-opening-balance" class="form-control" step="1000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">실제 통장 현재 잔액 (원) <span class="required">*</span></label>
+          <input type="number" id="migration-actual-bank" class="form-control" step="1000">
+          <div class="form-help">실제 은행 잔액을 입력하여 장부와 불일치 시 '확인 필요' 상태로 관리합니다.</div>
+        </div>
+
+        <button class="btn-primary-action" onclick="window.hwamokAdmin.saveMigrationSettings()">
+          이관 설정 저장 및 잔액 재계산
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 6] 공지사항 작성·수정
+           ================================================================= -->
+      <div id="sub-section-notice-admin" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">📢 공지사항 작성·수정</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">공지 분류 <span class="required">*</span></label>
+          <select id="notice-category-select" class="form-control">
+            <option value="fee">회비 납부 안내</option>
+            <option value="meeting">가족 모임 안내</option>
+            <option value="trip">여행 안내</option>
+            <option value="family">경조사 안내</option>
+            <option value="general">일반 공지</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">공지 제목 <span class="required">*</span></label>
+          <input type="text" id="notice-title-input" class="form-control" placeholder="예: 11월 정기 회비 납부 안내">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">공지 내용 <span class="required">*</span></label>
+          <textarea id="notice-content-input" class="form-control" placeholder="가족들에게 알릴 내용을 상세하게 입력하세요."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="notice-pinned-check" style="width:20px; height:20px;">
+            <span>상단 고정 (필독 공지)</span>
+          </label>
+        </div>
+
+        <button class="btn-primary-action" onclick="window.hwamokAdmin.submitNotice()">
+          공지 등록하기 (가족 화면 즉시 반영)
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 7] 가족 모임 및 여행 등록
+           ================================================================= -->
+      <div id="sub-section-event-admin" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">🎉 모임 및 여행 등록</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">모임/행사 구분 <span class="required">*</span></label>
+          <select id="event-type-select" class="form-control">
+            <option value="meeting">정기 가족 모임</option>
+            <option value="trip">가족 여행</option>
+            <option value="event">특별 행사</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">모임 명칭 <span class="required">*</span></label>
+          <input type="text" id="event-title-input" class="form-control" placeholder="예: 2026년 송년 가족 모임">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">날짜 <span class="required">*</span></label>
+          <input type="text" id="event-date-input" class="form-control" placeholder="예: 2026-12-19 또는 2027-04-10 ~ 04-12">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">시간</label>
+          <input type="text" id="event-time-input" class="form-control" placeholder="예: 오후 12:30">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">모임 장소 <span class="required">*</span></label>
+          <input type="text" id="event-location-input" class="form-control" placeholder="예: 서울 송파구 올림픽공원 한식당 (가원)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">상세 주소 (네비게이션용)</label>
+          <input type="text" id="event-address-input" class="form-control" placeholder="예: 서울시 송파구 위례성대로 123">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">상세 일정 및 준비물</label>
+          <textarea id="event-desc-input" class="form-control" placeholder="모임 세부 일정 및 안내사항"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="event-isnext-check" checked style="width:20px; height:20px;">
+            <span>첫 화면 및 모임 화면의 '다음 가족 모임' 대표 배너로 설정</span>
+          </label>
+        </div>
+
+        <button class="btn-primary-action" onclick="window.hwamokAdmin.submitEvent()">
+          모임 일정 저장하기
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 8] 회칙·지원금 관리
+           ================================================================= -->
+      <div id="sub-section-rules" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">📜 회칙·지원금 및 유예 관리</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">개인별 월 기본 회비 (원) <span class="required">*</span></label>
+          <input type="number" id="rule-monthly-fee" class="form-control" value="20000" step="1000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">정기 납부일 (매월 몇 일) <span class="required">*</span></label>
+          <input type="number" id="rule-due-day" class="form-control" value="10" min="1" max="31">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">미납 사전안내 및 유예기간 (개월) <span class="required">*</span></label>
+          <input type="number" id="rule-grace-months" class="form-control" value="3" min="1" max="12">
+          <div class="form-help">회칙 기준: 3개월 이상 미납 시 사전 안내 및 유예기간 부여</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">탈퇴 시 환급 공식 (납부액 환급 비율 %) <span class="required">*</span></label>
+          <input type="number" id="rule-refund-rate" class="form-control" value="80" min="0" max="100">
+          <div class="form-help">가족 합의 기준 (예: 납부 총액의 80% 환급, 20%는 기본 운영비 공제)</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">회칙 상세 및 불참 회원 권리 규정</label>
+          <textarea id="rule-notes" class="form-control"></textarea>
+          <div class="form-help">원칙: 불참 회원도 회비를 납부한 경우 동등한 기본 권리를 유지함.</div>
+        </div>
+
+        <button class="btn-primary-action" onclick="window.hwamokAdmin.saveRules()">
+          회칙 개정 저장하기
+        </button>
+
+        <h4 style="font-size:18px; font-weight:800; margin:20px 0 10px;">회칙 변경 이력</h4>
+        <div id="rule-history-list" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+          <!-- 동적 렌더링 -->
+        </div>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 9] 탈퇴·해산 정산기
+           ================================================================= -->
+      <div id="sub-section-settlement" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">⚖️ 탈퇴 및 해산 정산기</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <!-- 1. 탈퇴 환급 계산 -->
+        <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h4 style="font-size:18px; font-weight:800; color:#1e40af; margin-bottom:10px;">1. 탈퇴 회원 환급액 계산</h4>
+          <div class="form-group">
+            <label class="form-label">탈퇴 대상 회원 선택</label>
+            <select id="settle-member-select" class="form-control" onchange="window.hwamokAdmin.calculateMemberRefund()">
+              <!-- 동적 채움 -->
+            </select>
+          </div>
+          <div id="settle-member-result" style="background:#fff; border-radius:8px; padding:12px; font-size:17px;">
+            회원을 선택하면 납부 총액 및 환급금이 자동 계산됩니다.
+          </div>
+        </div>
+
+        <!-- 2. 모임 해산 시 잔액 균등 분배 -->
+        <div style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px; padding:16px;">
+          <h4 style="font-size:18px; font-weight:800; color:#991b1b; margin-bottom:10px;">2. 모임 해산 시 균등 분배 시뮬레이션</h4>
+          <p style="font-size:15px; color:#4b5563; margin-bottom:10px;">
+            화목회 해산 시 최종 잔액을 모든 활동 회원(불참자 포함)에게 균등하게 분배합니다.
+          </p>
+          <div id="settle-dissolution-result" style="background:#fff; border-radius:8px; padding:12px; font-size:18px; font-weight:700;">
+            <!-- 동적 계산치 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 10] 자료 다운로드 (CSV)
+           ================================================================= -->
+      <div id="sub-section-download-csv" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">💾 엑셀 호환 CSV 자료 다운로드</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <p style="font-size:16px; color:#4b5563; margin-bottom:18px;">
+          회계 장부, 회원 명부, 전체 납부 내역을 엑셀(Excel)에서 바로 열리는 UTF-8 BOM CSV 파일로 다운로드합니다.
+        </p>
+
+        <button class="btn-secondary-action" onclick="window.hwamokCsv.exportLedgerCsv()" style="margin-bottom:12px;">
+          <span>📗 회계 장부 전체 내역 다운로드 (CSV)</span>
+        </button>
+
+        <button class="btn-secondary-action" onclick="window.hwamokCsv.exportFeeRecordsCsv()" style="margin-bottom:12px;">
+          <span>📘 회원별 회비 납부 기록 전체 다운로드 (CSV)</span>
+        </button>
+
+        <button class="btn-secondary-action" onclick="window.hwamokCsv.exportMembersCsv()">
+          <span>📙 회원 명부 및 가족관계 다운로드 (CSV)</span>
+        </button>
+      </div>
+
+      <!-- =================================================================
+           [서브화면 11] 총무 권한 인계 및 감사 로그
+           ================================================================= -->
+      <div id="sub-section-handover" class="section-card" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 class="section-card-title" style="margin-bottom:0;">🔑 총무 권한 인계 및 시스템</h3>
+          <button class="btn-sm-action" onclick="window.hwamokAdmin.backToMenu()">◀ 관리 메뉴로</button>
+        </div>
+
+        <!-- 카카오톡 JavaScript 키 및 공개 도메인 설정 -->
+        <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h4 style="font-size:18px; font-weight:800; color:#b45309; margin-bottom:8px;">카카오톡 연동 및 공개 홈페이지 주소 설정</h4>
+          <div class="form-group">
+            <label class="form-label">카카오 JavaScript App Key</label>
+            <input type="text" id="kakao-app-key-input" class="form-control" placeholder="Kakao JavaScript App Key 입력">
+            <div class="form-help">키 미등록 시에도 '원클릭 링크 및 안내문 복사'로 카카오톡 공유가 완벽히 작동합니다.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">공개 홈페이지 주소 (HTTPS 권장)</label>
+            <input type="url" id="public-domain-input" class="form-control" placeholder="예: https://hwamokhoe.pages.dev">
+            <div class="form-help">카카오톡 초대 메시지에 포함될 실제 가족 접속 링크 주소입니다.</div>
+          </div>
+          <button class="btn-sm-action" style="background:#fee500; color:#191919; font-weight:800;" onclick="window.hwamokAdmin.saveKakaoKey()">
+            카카오 설정 및 주소 저장하기
+          </button>
+        </div>
+
+        <!-- 권한 인계 마법사 -->
+        <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h4 style="font-size:18px; font-weight:800; color:#1e293b; margin-bottom:8px;">총무 권한 인계 마법사</h4>
+          <p style="font-size:15px; color:#64748b; margin-bottom:12px;">
+            개발자 임시 총무에서 실제 총무님으로 관리 권한을 안전하게 인계합니다.
+          </p>
+          <div class="form-group">
+            <label class="form-label">새 총무 성명 / 계정명</label>
+            <input type="text" id="new-admin-name" class="form-control" placeholder="예: 김총무">
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 관리자 비밀번호</label>
+            <input type="password" id="new-admin-pw" class="form-control" placeholder="새 비밀번호 입력">
+          </div>
+          <button class="btn-primary-action" onclick="window.hwamokAdmin.handoverAdmin()">
+            총무 권한 인계 확정 및 이력 저장
+          </button>
+        </div>
+
+        <!-- 감사 로그 (Audit Log) -->
+        <h4 style="font-size:18px; font-weight:800; margin-bottom:10px;">관리자 작업 감사 로그</h4>
+        <div id="admin-audit-log-container" style="max-height:220px; overflow-y:auto; background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:14px;">
+          <!-- 동적 채움 -->
+        </div>
+
+        <!-- 테스트 데이터 초기화 버튼 -->
+        <div style="margin-top:20px; border-top:1px dashed #cbd5e1; padding-top:16px;">
+          <button class="btn-sm-action delete" style="width:100%; min-height:48px;" onclick="window.hwamokAdmin.resetTestData()">
+            ⚠️ 테스트 데이터만 초기화하기 (운영 데이터는 보존됨)
+          </button>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- 스크립트 로드 -->
+  <script src="js/data-store.js"></script>
+  <script src="js/kakao-share.js"></script>
+  <script src="js/csv-manager.js"></script>
+  <script src="js/admin.js"></script>
+
+</body>
+</html>
