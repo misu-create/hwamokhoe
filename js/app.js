@@ -384,9 +384,35 @@ class HwamokApp {
 
     this.activeNoticeForModal = notice;
     document.getElementById('modal-notice-title').innerText = notice.title;
-    document.getElementById('modal-notice-date').innerText = `등록일: ${notice.date} | 구분: ${notice.categoryName || '가족 소식'}`;
+
+    // 카테고리 배지 표시
+    const catBadgeElem = document.getElementById('modal-notice-category-badge');
+    if (catBadgeElem) {
+      const catLabel = window.hwamokShare ? window.hwamokShare.getNoticeCategoryLabel(notice) : (notice.categoryName || '가족 소식');
+      const badgeClass = notice.category || 'fee';
+      catBadgeElem.innerHTML = `<span class="notice-badge ${badgeClass}" style="font-size:14px; padding:4px 12px; font-weight:700;">${catLabel}</span>`;
+    }
+
+    document.getElementById('modal-notice-date').innerText = `등록일: ${notice.date} · 총무 올림`;
     document.getElementById('modal-notice-body').innerText = notice.content;
 
+    // 카카오톡 피드 카드 공유 버튼
+    const btnShareCard = document.getElementById('btn-modal-share-card');
+    if (btnShareCard) {
+      btnShareCard.onclick = () => {
+        window.hwamokShare.share('notice', { notice });
+      };
+    }
+
+    // 공지 전문 복사 버튼 (가족 단톡방 붙여넣기용)
+    const btnCopyFull = document.getElementById('btn-modal-copy-full');
+    if (btnCopyFull) {
+      btnCopyFull.onclick = () => {
+        window.hwamokShare.copyNoticeFullText(notice);
+      };
+    }
+
+    // 하위 호환: 혹시 기존 버튼이 남아있을 경우
     const modalShareBtn = document.getElementById('btn-modal-share');
     if (modalShareBtn) {
       modalShareBtn.onclick = () => {
@@ -414,20 +440,37 @@ class HwamokApp {
   }
 
   setupEventListeners() {
-    // URL 해시(#view-fee 등) 접속 시 자동 화면 전환
-    const handleHashChange = () => {
+    // URL 쿼리 파라미터(?notice=ID) 및 해시(#view-fee, #notice-1 등) 접속 시 자동 화면 전환 & 공지 모달 오픈
+    const handleUrlRoute = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const noticeId = urlParams.get('notice');
       const hash = window.location.hash.replace('#', '');
+
+      if (noticeId) {
+        this.switchView('notice');
+        setTimeout(() => {
+          this.openNoticeModal(noticeId);
+        }, 80);
+        return;
+      }
+
+      if (hash.startsWith('notice-')) {
+        this.switchView('notice');
+        setTimeout(() => {
+          this.openNoticeModal(hash);
+        }, 80);
+        return;
+      }
+
       if (hash.startsWith('view-')) {
         const view = hash.replace('view-', '');
         this.switchView(view);
       }
     };
 
-    if (window.location.hash) {
-      handleHashChange();
-    }
+    handleUrlRoute();
 
-    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('hashchange', handleUrlRoute);
 
     window.addEventListener('popstate', (e) => {
       if (e.state && e.state.view) {

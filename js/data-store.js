@@ -241,6 +241,9 @@ class HwamokhoeDataStore {
     let postExpense = 0;
 
     data.transactions.forEach(tx => {
+      // 취소(cancelled) 처리된 거래는 회계 잔액 계산에서 완전 제외
+      if (tx.status === 'cancelled') return;
+
       const txDate = tx.date;
       const amount = Number(tx.amount) || 0;
 
@@ -272,7 +275,7 @@ class HwamokhoeDataStore {
       actualBankBalance,
       diff,
       isMatched, // true: 일치, false: 확인 필요
-      totalTransactionsCount: data.transactions.length
+      totalTransactionsCount: data.transactions.filter(t => t.status !== 'cancelled').length
     };
   }
 
@@ -284,12 +287,13 @@ class HwamokhoeDataStore {
     // yearMonth: 'YYYY-MM'
     const data = this.getData();
     const monthlyFee = data.settings.monthlyFee || 20000;
-    const activeMembers = data.members.filter(m => m.active);
+    // 탈퇴 회원이나 비활성 회원, 회비 비대상자는 납부 대상 인원에서 제외
+    const activeMembers = data.members.filter(m => (m.active !== false) && (m.status !== 'withdrawn') && (m.status !== 'inactive') && (m.isFeeTarget !== false));
     const totalExpectedCount = activeMembers.length;
     const totalExpectedAmount = totalExpectedCount * monthlyFee;
 
-    // 해당 월의 납부 기록 추출
-    const records = data.feeRecords.filter(r => r.targetMonth === yearMonth);
+    // 해당 월의 납부 기록 추출 (취소된 거래 제외)
+    const records = data.feeRecords.filter(r => r.targetMonth === yearMonth && r.status !== 'cancelled');
 
     let paidCount = 0;
     let unpaidCount = 0;
@@ -410,51 +414,267 @@ class HwamokhoeDataStore {
       category: category || '모임지출',
       desc,
       amount: Number(amount) || 0,
-      note: note || ''
+      note: note || '',
+      status: 'active'
     };
     data.transactions.unshift(tx);
     this.saveData(data);
-    this.logAdminAction('지출 등록', `${desc} ${Number(amount).toLocaleString()}원 지출 등록`);
+    this.logAdminAction('지출 등록', `[지출 ID: ${tx.id}] ${desc} (${Number(amount).toLocaleString()}원) 등록`, { targetId: tx.id, targetType: 'expense' });
     return { success: true, tx };
   }
 
-  // 회원 추가 / 수정
-  saveMember({ id, name, relation, phone, active }) {
+  // 지출 수정
+  updateExpense({ id, date, category, desc, amount, note }) {
     const data = this.getData();
+    const tx = data.transactions.find(t => t.id === id);
+    if (!tx) return { success: false, message: '지출 거래를 찾을 수 없습니다.' };
+
+    const oldAmount = tx.amount;
+    const oldDesc = tx.desc;
+
+    tx.date = date || tx.date;
+    tx.category = category || tx.category;
+    tx.desc = desc || tx.desc;
+    tx.amount = Number(amount);
+    tx.note = note !== undefined ? note : (tx.note || '');
+
+    this.saveData(data);
+    this.logAdminAction('지출 수정', `[지출 ID: ${id}] ${tx.desc} 수정 (기존: ${oldAmount.toLocaleString()}원 ➔ 변경: ${Number(amount).toLocaleString()}원)`, { targetId: id, targetType: 'expense' });
+    return { success: true, tx };
+  }
+
+  // 지출 취소 (장부 잔액에서 제외)
+  cancelExpense(id, reason = '총무 지출 취소') {
+    const data = this.getData();
+    const tx = data.transactions.find(t => t.id === id);
+    if (!tx) return { success: false, message: '지출 거래를 찾을 수 없습니다.' };
+
+    const oldAmount = tx.amount;
+    tx.status = 'cancelled';
+    tx.cancelledAt = new Date().toISOString();
+    tx.cancelReason = reason;
+
+    this.saveData(data);
+    this.logAdminAction('지출 취소', `[지출 ID: ${id}] ${tx.desc} (${oldAmount.toLocaleString()}원) 거래 취소 (사유: ${reason})`, { targetId: id, targetType: 'expense' });
+    return { success: true, tx };
+  }
+
+  // 지출 취소 복구
+  restoreExpense(id) {
+    const data = this.getData();
+    const tx = data.transactions.find(t => t.id === id);
+    if (!tx) return false;
+
+    tx.status = 'active';
+    delete tx.cancelledAt;
+    delete tx.cancelReason;
+
+    this.saveData(data);
+    this.logAdminAction('지출 복구', `[지출 ID: ${id}] ${tx.desc} 지출 거래 복구`, { targetId: id, targetType: 'expense' });
+    return true;
+  }
+
+  // =========================================================================
+  // 회비 수정 / 취소 / 복구
+  // =========================================================================
+
+  // 회비 기록 수정 (금액, 연월, 입금일, 상태, 메모)
+  updateFeePayment({ id, memberId, targetMonth, amount, paidAt, note, status }) {
+    const data = this.getData();
+    const recIndex = data.feeRecords.findIndex(r => r.id === id);
+    if (recIndex < 0) return { success: false, message: '회비 기록을 찾을 수 없습니다.' };
+
+    const oldRec = data.feeRecords[recIndex];
+    const member = data.members.find(m => m.id === (memberId || oldRec.memberId));
+    const memberName = member ? member.name : '회원';
+    const newAmount = Number(amount);
+    const newStatus = status || (newAmount >= (data.settings.monthlyFee || 20000) ? 'paid' : (newAmount > 0 ? 'partial' : 'unpaid'));
+
+    const updatedRec = {
+      ...oldRec,
+      memberId: memberId || oldRec.memberId,
+      targetMonth: targetMonth || oldRec.targetMonth,
+      amount: newAmount,
+      paidAt: paidAt || oldRec.paidAt,
+      status: newStatus,
+      note: note !== undefined ? note : (oldRec.note || '')
+    };
+    data.feeRecords[recIndex] = updatedRec;
+
+    // 연결된 장부 거래 내역 동기화
+    const tx = data.transactions.find(t => t.relatedFeeId && (t.relatedFeeId === id || t.relatedFeeId.includes(id)));
+    if (tx) {
+      tx.date = paidAt || tx.date;
+      tx.amount = newAmount;
+      tx.desc = `${memberName} (${updatedRec.targetMonth} 회비)`;
+      if (newStatus === 'cancelled') {
+        tx.status = 'cancelled';
+      } else {
+        tx.status = 'active';
+      }
+    }
+
+    this.saveData(data);
+    this.logAdminAction('회비 수정', `[회비 ID: ${id}] ${memberName} ${updatedRec.targetMonth} 회비 수정 (${oldRec.amount.toLocaleString()}원 ➔ ${newAmount.toLocaleString()}원, 상태: ${newStatus})`, { targetId: id, targetType: 'fee' });
+    return { success: true, record: updatedRec };
+  }
+
+  // 회비 입금 취소 (장부 잔액 및 납부 통계에서 제외)
+  cancelFeePayment(id, reason = '총무 거래 취소') {
+    const data = this.getData();
+    const rec = data.feeRecords.find(r => r.id === id);
+    if (!rec) return { success: false, message: '회비 기록을 찾을 수 없습니다.' };
+
+    const member = data.members.find(m => m.id === rec.memberId);
+    const memberName = member ? member.name : '회원';
+    const oldAmount = rec.amount;
+
+    rec.status = 'cancelled';
+    rec.cancelledAt = new Date().toISOString();
+    rec.cancelReason = reason;
+
+    // 연결된 장부 거래도 취소 처리
+    const tx = data.transactions.find(t => t.relatedFeeId && (t.relatedFeeId === id || t.relatedFeeId.includes(id)));
+    if (tx) {
+      tx.status = 'cancelled';
+      tx.cancelledAt = new Date().toISOString();
+      tx.cancelReason = reason;
+    }
+
+    this.saveData(data);
+    this.logAdminAction('회비 취소', `[회비 ID: ${id}] ${memberName} ${rec.targetMonth} 회비 (${Number(oldAmount).toLocaleString()}원) 거래 취소 처리 (사유: ${reason})`, { targetId: id, targetType: 'fee' });
+    return { success: true, memberName, targetMonth: rec.targetMonth };
+  }
+
+  // 회비 취소 복구
+  restoreFeePayment(id) {
+    const data = this.getData();
+    const rec = data.feeRecords.find(r => r.id === id);
+    if (!rec) return false;
+
+    const member = data.members.find(m => m.id === rec.memberId);
+    const memberName = member ? member.name : '회원';
+    rec.status = rec.amount >= (data.settings.monthlyFee || 20000) ? 'paid' : (rec.amount > 0 ? 'partial' : 'unpaid');
+    delete rec.cancelledAt;
+    delete rec.cancelReason;
+
+    const tx = data.transactions.find(t => t.relatedFeeId && (t.relatedFeeId === id || t.relatedFeeId.includes(id)));
+    if (tx) {
+      tx.status = 'active';
+      delete tx.cancelledAt;
+      delete tx.cancelReason;
+    }
+
+    this.saveData(data);
+    this.logAdminAction('회비 복구', `[회비 ID: ${id}] ${memberName} ${rec.targetMonth} 회비 거래 복구`, { targetId: id, targetType: 'fee' });
+    return true;
+  }
+
+  // =========================================================================
+  // 회원 추가 / 수정 / 삭제 / 상태변경
+  // =========================================================================
+
+  saveMember({ id, name, relation, phone, active, status, isFeeTarget, joinedAt, feeStartMonth, customFee, note }) {
+    const data = this.getData();
+    const isAct = status ? (status === 'active') : (active !== false);
+    const memberStatus = status || (isAct ? 'active' : 'inactive');
+
     if (id) {
       const index = data.members.findIndex(m => m.id === id);
       if (index >= 0) {
-        data.members[index] = { ...data.members[index], name, relation, phone, active };
+        const oldMember = data.members[index];
+        data.members[index] = {
+          ...oldMember,
+          name: (name || '').trim(),
+          relation: relation || oldMember.relation || '가족',
+          phone: phone || '',
+          active: isAct,
+          status: memberStatus,
+          isFeeTarget: isFeeTarget !== false,
+          joinedAt: joinedAt || oldMember.joinedAt || new Date().toISOString().slice(0, 10),
+          feeStartMonth: feeStartMonth || oldMember.feeStartMonth || '2025-01',
+          customFee: customFee ? Number(customFee) : undefined,
+          note: note !== undefined ? note : (oldMember.note || '')
+        };
         this.saveData(data);
-        this.logAdminAction('회원 수정', `${name} 회원 정보 수정`);
+        this.logAdminAction('회원 수정', `[회원 ID: ${id}] ${name} 회원 정보 수정 (상태: ${memberStatus})`, { targetId: id, targetType: 'member' });
         return data.members[index];
       }
     } else {
       const newMember = {
         id: 'm_' + Date.now(),
-        name,
+        name: (name || '').trim(),
         relation: relation || '가족',
         phone: phone || '',
-        active: active !== false,
-        joinedAt: new Date().toISOString().slice(0, 10)
+        active: isAct,
+        status: memberStatus,
+        isFeeTarget: isFeeTarget !== false,
+        joinedAt: joinedAt || new Date().toISOString().slice(0, 10),
+        feeStartMonth: feeStartMonth || '2025-01',
+        customFee: customFee ? Number(customFee) : undefined,
+        note: note || ''
       };
       data.members.push(newMember);
       this.saveData(data);
-      this.logAdminAction('회원 등록', `${name} 신규 회원 등록`);
+      this.logAdminAction('회원 등록', `[회원 ID: ${newMember.id}] ${name} 신규 회원 등록`, { targetId: newMember.id, targetType: 'member' });
       return newMember;
     }
   }
 
-  // 공지사항 등록 / 수정
+  // 회원 삭제 검사 및 처리
+  deleteMember(id) {
+    const data = this.getData();
+    const member = data.members.find(m => m.id === id);
+    if (!member) return { success: false, reason: 'not_found' };
+
+    // 회비 납부 기록(취소되지 않은 납부액 > 0) 검사
+    const paidRecords = data.feeRecords.filter(r => r.memberId === id && r.status !== 'cancelled' && Number(r.amount) > 0);
+    if (paidRecords.length > 0) {
+      return {
+        success: false,
+        reason: 'has_records',
+        count: paidRecords.length,
+        memberName: member.name
+      };
+    }
+
+    // 기록이 없는 회원은 완전 삭제
+    data.members = data.members.filter(m => m.id !== id);
+    data.feeRecords = data.feeRecords.filter(r => r.memberId !== id);
+    this.saveData(data);
+    this.logAdminAction('회원 삭제', `[회원 ID: ${id}] ${member.name} 회원 완전 삭제 (납부기록 없음)`, { targetId: id, targetType: 'member' });
+    return { success: true, memberName: member.name };
+  }
+
+  // 회원 상태 변경 (활동 / 비활성 / 탈퇴)
+  updateMemberStatus(id, newStatus, reason = '') {
+    const data = this.getData();
+    const member = data.members.find(m => m.id === id);
+    if (!member) return false;
+
+    const oldStatus = member.status || (member.active ? 'active' : 'inactive');
+    member.status = newStatus;
+    member.active = (newStatus === 'active');
+    if (reason) member.statusReason = reason;
+
+    this.saveData(data);
+    this.logAdminAction('회원 상태변경', `[회원 ID: ${id}] ${member.name} 상태 변경: ${oldStatus} ➔ ${newStatus} (사유: ${reason || '총무 설정'})`, { targetId: id, targetType: 'member' });
+    return true;
+  }
+
+  // =========================================================================
+  // 공지사항 등록 / 수정 / 삭제
+  // =========================================================================
+
   saveNotice({ id, category, categoryName, title, content, pinned }) {
     const data = this.getData();
     const today = new Date().toISOString().slice(0, 10);
     if (id) {
       const index = data.notices.findIndex(n => n.id === id);
       if (index >= 0) {
-        data.notices[index] = { ...data.notices[index], category, categoryName, title, content, pinned };
+        data.notices[index] = { ...data.notices[index], category, categoryName, title, content, pinned: !!pinned };
         this.saveData(data);
-        this.logAdminAction('공지 수정', `공지사항 [${title}] 수정`);
+        this.logAdminAction('공지 수정', `[공지 ID: ${id}] 공지사항 [${title}] 수정`, { targetId: id, targetType: 'notice' });
         return data.notices[index];
       }
     } else {
@@ -469,12 +689,25 @@ class HwamokhoeDataStore {
       };
       data.notices.unshift(newNotice);
       this.saveData(data);
-      this.logAdminAction('공지 등록', `공지사항 [${title}] 등록`);
+      this.logAdminAction('공지 등록', `[공지 ID: ${newNotice.id}] 공지사항 [${title}] 등록`, { targetId: newNotice.id, targetType: 'notice' });
       return newNotice;
     }
   }
 
-  // 모임 등록 / 수정
+  deleteNotice(id) {
+    const data = this.getData();
+    const notice = data.notices.find(n => n.id === id);
+    if (!notice) return false;
+    data.notices = data.notices.filter(n => n.id !== id);
+    this.saveData(data);
+    this.logAdminAction('공지 삭제', `[공지 ID: ${id}] 공지사항 [${notice.title}] 삭제`, { targetId: id, targetType: 'notice' });
+    return true;
+  }
+
+  // =========================================================================
+  // 모임 등록 / 수정 / 삭제
+  // =========================================================================
+
   saveEvent({ id, title, type, date, time, location, address, description, isNext }) {
     const data = this.getData();
     if (isNext) {
@@ -483,9 +716,9 @@ class HwamokhoeDataStore {
     if (id) {
       const index = data.events.findIndex(e => e.id === id);
       if (index >= 0) {
-        data.events[index] = { ...data.events[index], title, type, date, time, location, address, description, isNext };
+        data.events[index] = { ...data.events[index], title, type, date, time, location, address, description, isNext: !!isNext };
         this.saveData(data);
-        this.logAdminAction('모임 수정', `모임 [${title}] 수정`);
+        this.logAdminAction('모임 수정', `[모임 ID: ${id}] 모임 [${title}] 수정`, { targetId: id, targetType: 'event' });
         return data.events[index];
       }
     } else {
@@ -502,58 +735,209 @@ class HwamokhoeDataStore {
       };
       data.events.unshift(newEvent);
       this.saveData(data);
-      this.logAdminAction('모임 등록', `모임 [${title}] 등록`);
+      this.logAdminAction('모임 등록', `[모임 ID: ${newEvent.id}] 모임 [${title}] 등록`, { targetId: newEvent.id, targetType: 'event' });
       return newEvent;
     }
   }
 
-  // 초기 잔액 및 이관 설정 저장
-  saveMigrationSettings({ migrationType, migrationBaseDate, openingBalance, actualBankBalance }) {
+  deleteEvent(id) {
     const data = this.getData();
-    data.settings.migrationType = migrationType;
-    data.settings.migrationBaseDate = migrationBaseDate;
-    data.settings.openingBalance = Number(openingBalance) || 0;
-    data.settings.actualBankBalance = Number(actualBankBalance) || 0;
+    const ev = data.events.find(e => e.id === id);
+    if (!ev) return false;
+
+    data.events = data.events.filter(e => e.id !== id);
     this.saveData(data);
-    this.logAdminAction('회계 이관 설정', `이관방식: ${migrationType}안, 기준일: ${migrationBaseDate}, 시작잔액: ${openingBalance}`);
+    this.logAdminAction('모임 삭제', `[모임 ID: ${id}] 모임 일정 [${ev.title}] 삭제`, { targetId: id, targetType: 'event' });
+    return true;
   }
 
-  // 회칙 및 유예기간/환급율 저장
-  saveRulesSettings({ monthlyFee, dueDay, graceMonths, refundRate, ruleNotes }) {
+  // =========================================================================
+  // 초기 잔액 및 이관 설정
+  // =========================================================================
+
+  saveMigrationSettings({ migrationType, migrationBaseDate, openingBalance, actualBankBalance }) {
+    return this.saveMigrationSettingsWithReason({
+      migrationType,
+      migrationBaseDate,
+      openingBalance,
+      actualBankBalance,
+      reason: '총무 이관 설정 저장'
+    });
+  }
+
+  saveMigrationSettingsWithReason({ migrationType, migrationBaseDate, openingBalance, actualBankBalance, reason }) {
+    const data = this.getData();
+    const oldOpening = data.settings.openingBalance || 0;
+    const newOpening = Number(openingBalance) || 0;
+    const diff = newOpening - oldOpening;
+
+    data.settings.migrationType = migrationType;
+    data.settings.migrationBaseDate = migrationBaseDate;
+    data.settings.openingBalance = newOpening;
+    data.settings.actualBankBalance = Number(actualBankBalance) || 0;
+    data.settings.migrationReason = reason || '초기 잔액 정정';
+    data.settings.migrationUpdatedAt = new Date().toISOString();
+
+    this.saveData(data);
+    this.logAdminAction('초기 잔액 변경', `초기 잔액 정정: ${oldOpening.toLocaleString()}원 ➔ ${newOpening.toLocaleString()}원 (차액: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원, 사유: ${reason || '총무 정정'})`, { targetId: 'settings_migration', targetType: 'migration' });
+    return { success: true, diff, oldOpening, newOpening };
+  }
+
+  // =========================================================================
+  // 회칙 및 유예기간/환급율/경조사 기준
+  // =========================================================================
+
+  saveRulesSettings({ monthlyFee, dueDay, graceMonths, refundRate, ruleNotes, familyEventSupport, effectiveDate, agreedTerms }) {
     const data = this.getData();
     data.settings.monthlyFee = Number(monthlyFee) || 20000;
     data.settings.dueDay = Number(dueDay) || 10;
     data.settings.graceMonths = Number(graceMonths) || 3;
     data.settings.refundRate = Number(refundRate) || 0.8;
     data.settings.ruleNotes = ruleNotes || '';
+    data.settings.familyEventSupport = familyEventSupport || '';
+    data.settings.effectiveDate = effectiveDate || new Date().toISOString().slice(0, 10);
+    data.settings.agreedTerms = agreedTerms || '';
     data.settings.rulesUpdatedDate = new Date().toISOString().slice(0, 10);
 
-    data.rulesHistory.unshift({
+    const historyEntry = {
       date: new Date().toISOString().slice(0, 10),
-      content: `월 회비 ${monthlyFee}원, ${dueDay}일 납부, 유예 ${graceMonths}개월, 환급율 ${Math.round(refundRate * 100)}% 갱신`,
+      effectiveDate: data.settings.effectiveDate,
+      content: `월 회비 ${Number(monthlyFee).toLocaleString()}원, 납부일 ${dueDay}일, 유예 ${graceMonths}개월, 환급율 ${Math.round(refundRate * 100)}% 개정 (적용 시작일: ${data.settings.effectiveDate})${familyEventSupport ? ' | 경조사: ' + familyEventSupport : ''}`,
       author: '총무'
-    });
+    };
+    data.rulesHistory = data.rulesHistory || [];
+    data.rulesHistory.unshift(historyEntry);
 
     this.saveData(data);
-    this.logAdminAction('회칙 변경', `월회비 ${monthlyFee}원, 유예 ${graceMonths}개월 등 회칙 개정`);
+    this.logAdminAction('회칙 변경', `회칙 개정: 월회비 ${Number(monthlyFee).toLocaleString()}원, 적용일: ${data.settings.effectiveDate}`, { targetId: 'settings_rules', targetType: 'rules' });
+    return { success: true };
   }
 
+  // =========================================================================
+  // 탈퇴 / 해산 정산 기록 관리
+  // =========================================================================
+
+  saveSettlementRecord({ id, type, memberId, memberName, totalPaid, refundRate, calculatedAmount, actualPaidAmount, settledAt, status, note }) {
+    const data = this.getData();
+    data.settlements = data.settlements || [];
+
+    if (id) {
+      const idx = data.settlements.findIndex(s => s.id === id);
+      if (idx >= 0) {
+        data.settlements[idx] = {
+          ...data.settlements[idx],
+          type,
+          memberId,
+          memberName,
+          totalPaid: Number(totalPaid),
+          refundRate: Number(refundRate),
+          calculatedAmount: Number(calculatedAmount),
+          actualPaidAmount: Number(actualPaidAmount),
+          settledAt: settledAt || new Date().toISOString().slice(0, 10),
+          status: status || 'draft',
+          note: note || ''
+        };
+        this.saveData(data);
+        this.logAdminAction('정산 수정', `[정산 ID: ${id}] ${memberName} ${type === 'refund' ? '탈퇴 환급' : '해산 분배'} 정산 수정 (상태: ${status})`, { targetId: id, targetType: 'settlement' });
+        return data.settlements[idx];
+      }
+    } else {
+      const newSettlement = {
+        id: 'st_' + Date.now(),
+        type: type || 'refund',
+        memberId,
+        memberName,
+        totalPaid: Number(totalPaid) || 0,
+        refundRate: Number(refundRate) || 0.8,
+        calculatedAmount: Number(calculatedAmount) || 0,
+        actualPaidAmount: Number(actualPaidAmount) || 0,
+        settledAt: settledAt || new Date().toISOString().slice(0, 10),
+        status: status || 'draft', // 'draft': 초안(수정가능), 'confirmed': 지급완료(수정불가)
+        note: note || ''
+      };
+      data.settlements.unshift(newSettlement);
+      this.saveData(data);
+      this.logAdminAction('정산 등록', `[정산 ID: ${newSettlement.id}] ${memberName} ${newSettlement.type === 'refund' ? '탈퇴 환급' : '해산 분배'} 정산 등록 (${newSettlement.calculatedAmount.toLocaleString()}원, 상태: ${newSettlement.status})`, { targetId: newSettlement.id, targetType: 'settlement' });
+      return newSettlement;
+    }
+  }
+
+  cancelSettlementRecord(id, reason = '총무 정산 취소') {
+    const data = this.getData();
+    data.settlements = data.settlements || [];
+    const st = data.settlements.find(s => s.id === id);
+    if (!st) return false;
+
+    st.status = 'cancelled';
+    st.cancelledAt = new Date().toISOString();
+    st.cancelReason = reason;
+    this.saveData(data);
+    this.logAdminAction('정산 취소', `[정산 ID: ${id}] ${st.memberName} 정산 기록 취소 (사유: ${reason})`, { targetId: id, targetType: 'settlement' });
+    return true;
+  }
+
+  // =========================================================================
+  // 전체 데이터베이스 백업 및 복원
+  // =========================================================================
+
+  exportBackupJson() {
+    const data = this.getData();
+    const backupObj = {
+      format: 'hwamokhoe_backup_v1',
+      mode: this.mode,
+      exportedAt: new Date().toISOString(),
+      data
+    };
+    return JSON.stringify(backupObj, null, 2);
+  }
+
+  importBackupJson(jsonString) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!parsed || !parsed.data) {
+        throw new Error('유효하지 않은 화목회 백업 파일 형식입니다.');
+      }
+      const data = parsed.data;
+      if (!data.settings || !Array.isArray(data.members)) {
+        throw new Error('백업 데이터의 필수 구조(settings, members)가 올바르지 않습니다.');
+      }
+      this.saveData(data);
+      this.logAdminAction('데이터 복원', `백업 파일로부터 전체 데이터베이스 복원 완료 (내보낸 일시: ${parsed.exportedAt || '알 수 없음'})`, { targetId: 'system_backup', targetType: 'system' });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // =========================================================================
   // 총무 관리자 감사 로그
-  logAdminAction(action, detail) {
+  // =========================================================================
+
+  logAdminAction(action, detail, meta = {}) {
     const logs = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_LOG) || '[]');
     logs.unshift({
+      id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       timestamp: new Date().toISOString(),
       action,
       detail,
+      targetId: meta.targetId || null,
+      targetType: meta.targetType || null,
       mode: this.mode
     });
-    // 최근 100건 보관
-    if (logs.length > 100) logs.pop();
+    // 최근 250건 보관
+    if (logs.length > 250) logs.pop();
     localStorage.setItem(STORAGE_KEYS.ADMIN_LOG, JSON.stringify(logs));
   }
 
-  getAdminLogs() {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_LOG) || '[]');
+  getAdminLogs(filterType = 'all') {
+    const logs = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_LOG) || '[]');
+    if (filterType === 'all') return logs;
+    return logs.filter(l => l.targetType === filterType || (l.action && l.action.includes(filterType)));
+  }
+
+  getItemHistory(targetId) {
+    const logs = this.getAdminLogs('all');
+    return logs.filter(l => l.targetId === targetId || (l.detail && l.detail.includes(targetId)));
   }
 }
 

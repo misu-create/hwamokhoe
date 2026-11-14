@@ -87,6 +87,9 @@ class HwamokCsvManager {
           } else if (record.status === 'na') {
             statusClass = 'status-na';
             statusText = '해당없음';
+          } else if (record.status === 'cancelled') {
+            statusClass = 'status-check';
+            statusText = '취소됨';
           } else {
             statusClass = 'status-unpaid';
             statusText = '미납';
@@ -145,6 +148,11 @@ class HwamokCsvManager {
   // =========================================================================
 
   openCellDetailModal(memberId, memberName, month, recordId) {
+    if (window.hwamokAdmin && typeof window.hwamokAdmin.openMatrixModal === 'function') {
+      window.hwamokAdmin.openMatrixModal(memberId, memberName, month, recordId);
+      return;
+    }
+
     const data = this.store.getData();
     const record = recordId ? data.feeRecords.find(r => r.id === recordId) : null;
     const currentStatus = record ? record.status : 'unpaid';
@@ -390,10 +398,11 @@ class HwamokCsvManager {
   // 회계 장부 CSV 다운로드
   exportLedgerCsv() {
     const data = this.store.getData();
-    let csv = '\uFEFF거래일자,구분,분류,내역,금액,비고\n';
+    let csv = '\uFEFF거래일자,구분,분류,내역,금액,상태,취소사유,비고\n';
     data.transactions.forEach(t => {
       const typeStr = t.type === 'income' ? '수입' : '지출';
-      csv += `${t.date},${typeStr},${t.category},"${t.desc.replace(/"/g, '""')}",${t.amount},"${(t.note || '').replace(/"/g, '""')}"\n`;
+      const statusStr = t.status === 'cancelled' ? '취소됨' : '정상';
+      csv += `${t.date},${typeStr},${t.category},"${t.desc.replace(/"/g, '""')}",${t.amount},${statusStr},"${(t.cancelReason || '').replace(/"/g, '""')}","${(t.note || '').replace(/"/g, '""')}"\n`;
     });
     this.downloadBlob(csv, `화목회_회계장부_${new Date().toISOString().slice(0, 10)}.csv`);
   }
@@ -401,9 +410,11 @@ class HwamokCsvManager {
   // 회원 명부 CSV 다운로드
   exportMembersCsv() {
     const data = this.store.getData();
-    let csv = '\uFEFF회원ID,이름,가족관계,연락처,상태,가입일자\n';
+    let csv = '\uFEFF회원ID,이름,가족관계,연락처,상태,회비부과대상,가입일자,비고\n';
     data.members.forEach(m => {
-      csv += `${m.id},${m.name},${m.relation},${m.phone || '-'},${m.active ? '활동' : '탈퇴'},${m.joinedAt || '-'}\n`;
+      const statusStr = m.status === 'withdrawn' ? '탈퇴' : (!m.active ? '비활성' : '활동');
+      const targetStr = m.isFeeTarget !== false ? '부과대상' : '면제/제외';
+      csv += `${m.id},${m.name},${m.relation},${m.phone || '-'},${statusStr},${targetStr},${m.joinedAt || '-'},"${(m.note || '').replace(/"/g, '""')}"\n`;
     });
     this.downloadBlob(csv, `화목회_회원명부_${new Date().toISOString().slice(0, 10)}.csv`);
   }
@@ -411,12 +422,13 @@ class HwamokCsvManager {
   // 회비 납부 기록 전체 CSV 다운로드
   exportFeeRecordsCsv() {
     const data = this.store.getData();
-    let csv = '\uFEFF회원명,가족관계,대상연월,상태,납부금액,실제입금일,비고\n';
+    let csv = '\uFEFF회원명,가족관계,대상연월,상태,납부금액,실제입금일,취소사유,비고\n';
     data.feeRecords.forEach(r => {
       const member = data.members.find(m => m.id === r.memberId);
       const name = member ? member.name : '알수없음';
       const rel = member ? member.relation : '-';
-      csv += `${name},${rel},${r.targetMonth},${r.status},${r.amount},${r.paidAt || '-'},"${(r.note || '').replace(/"/g, '""')}"\n`;
+      const statusStr = r.status === 'cancelled' ? '취소됨' : (r.status === 'paid' ? '완납' : (r.status === 'partial' ? '일부납' : '미납'));
+      csv += `${name},${rel},${r.targetMonth},${statusStr},${r.amount},${r.paidAt || '-'},"${(r.cancelReason || '').replace(/"/g, '""')}","${(r.note || '').replace(/"/g, '""')}"\n`;
     });
     this.downloadBlob(csv, `화목회_전체납부기록_${new Date().toISOString().slice(0, 10)}.csv`);
   }

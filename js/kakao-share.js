@@ -6,84 +6,121 @@
  * ② fee     : 회비 현황 공유 (월별 수납 현황 요약, 익명 통계)
  * ③ ledger  : 회계장부 공유 (수입, 지출, 잔액 요약)
  * ④ meeting : 가족 모임 공유 (모임 일시, 장소, 세부 안내)
- * ⑤ notice  : 공지사항 공유 (공지 제목, 내용 요약, 확인 링크)
+ * ⑤ notice  : 공지사항 공유 (공식 카드 공유 및 공지 전문 복사 2종 지원)
  * 
- * [스마트폰 최적화 폴백]
- * 1. Kakao SDK 피드 공유 시도
- * 2. 실패 또는 모바일 환경 시: navigator.share (스마트폰 네이티브 공유 시트)
- * 3. 클립보드 복사 (안내 토스트 및 모달)
+ * [공식 도메인 및 주소]
+ * - 도메인: https://misu-create.github.io
+ * - 홈페이지: https://misu-create.github.io/hwamokhoe/
  */
 
 const KAKAO_STORAGE_KEY = 'hwamokhoe_kakao_js_key';
-const PUBLIC_DOMAIN_STORAGE_KEY = 'hwamokhoe_public_domain';
-// 기본 공개 배포 권장 도메인 (로컬 file:// 실행 시 초대 링크로 활용)
-const DEFAULT_PUBLIC_DOMAIN = 'https://hwamokhoe.pages.dev';
+const DEFAULT_PUBLIC_URL = 'https://misu-create.github.io/hwamokhoe/';
 
 class HwamokKakaoShare {
   constructor() {
-    this.appKey = localStorage.getItem(KAKAO_STORAGE_KEY) || '';
-    this.publicDomain = localStorage.getItem(PUBLIC_DOMAIN_STORAGE_KEY) || DEFAULT_PUBLIC_DOMAIN;
     this.isSdkInitialized = false;
     this.initKakao();
   }
 
-  initKakao() {
-    if (this.appKey && window.Kakao) {
-      try {
-        if (!window.Kakao.isInitialized()) {
-          window.Kakao.init(this.appKey);
-        }
-        this.isSdkInitialized = window.Kakao.isInitialized();
-      } catch (e) {
-        console.warn('Kakao SDK 초기화 알림:', e);
-        this.isSdkInitialized = false;
-      }
+  // 효과적인 JavaScript 키 획득 (1순위: kakao-config.js, 2순위: localStorage 마이그레이션)
+  getEffectiveKey() {
+    if (window.HWAMOK_KAKAO_CONFIG && window.HWAMOK_KAKAO_CONFIG.JAVASCRIPT_KEY && window.HWAMOK_KAKAO_CONFIG.JAVASCRIPT_KEY.trim()) {
+      return window.HWAMOK_KAKAO_CONFIG.JAVASCRIPT_KEY.trim();
     }
+    const saved = localStorage.getItem(KAKAO_STORAGE_KEY);
+    if (saved && saved.trim()) {
+      return saved.trim();
+    }
+    return '';
   }
 
-  setAppKey(key) {
-    this.appKey = key.trim();
-    localStorage.setItem(KAKAO_STORAGE_KEY, this.appKey);
-    this.initKakao();
+  initKakao() {
+    if (!window.Kakao) {
+      console.warn('[화목회] Kakao SDK 스크립트가 아직 로드되지 않았습니다.');
+      return;
+    }
+
+    // 중복 초기화 방지
+    if (window.Kakao.isInitialized()) {
+      this.isSdkInitialized = true;
+      return;
+    }
+
+    const appKey = this.getEffectiveKey();
+    if (appKey && appKey.length > 0) {
+      try {
+        window.Kakao.init(appKey);
+        this.isSdkInitialized = window.Kakao.isInitialized();
+        console.log('[화목회] Kakao SDK 자동 초기화 완료:', this.isSdkInitialized);
+      } catch (e) {
+        console.warn('[화목회] Kakao SDK 초기화 알림:', e);
+        this.isSdkInitialized = false;
+      }
+    } else {
+      console.info('[화목회] Kakao JavaScript 키 설정 대기 (링크 복사 모드로 안전 작동)');
+      this.isSdkInitialized = false;
+    }
   }
 
   getAppKey() {
-    return this.appKey;
+    return this.getEffectiveKey();
   }
 
-  setPublicDomain(domain) {
-    this.publicDomain = domain.trim();
-    localStorage.setItem(PUBLIC_DOMAIN_STORAGE_KEY, this.publicDomain);
-  }
-
-  getPublicDomain() {
-    return this.publicDomain;
-  }
-
-  // 실제 외부 접속 가능한 HTTPS 주소 계산 (file:// 또는 localhost 방지)
-  getCanonicalUrl(hashPath = '') {
-    const loc = window.location;
-    if (loc.protocol === 'https:' || (loc.protocol === 'http:' && !loc.hostname.includes('localhost') && !loc.hostname.includes('127.0.0.1'))) {
-      const base = loc.origin + loc.pathname;
-      return hashPath ? `${base}#${hashPath}` : base;
+  setAppKey(key) {
+    if (key && key.trim()) {
+      localStorage.setItem(KAKAO_STORAGE_KEY, key.trim());
+      this.initKakao();
     }
-    // 로컬 환경일 경우 설정된 공개 도메인 사용
-    const base = this.publicDomain.replace(/\/$/, '');
-    return hashPath ? `${base}/#${hashPath}` : `${base}/`;
   }
 
-  // 대표 이미지 절대 HTTPS URL 계산
+  // 실제 외부 접속 가능한 HTTPS 절대 주소 계산 (GitHub Pages 기준 통일)
+  getCanonicalUrl(hashPath = '', queryParams = '') {
+    const base = (window.HWAMOK_KAKAO_CONFIG && window.HWAMOK_KAKAO_CONFIG.SITE_URL)
+      ? window.HWAMOK_KAKAO_CONFIG.SITE_URL
+      : DEFAULT_PUBLIC_URL;
+
+    let url = base.endsWith('/') ? base : base + '/';
+
+    if (queryParams) {
+      url += (url.includes('?') ? '&' : '?') + queryParams;
+    }
+    if (hashPath) {
+      url += (hashPath.startsWith('#') ? hashPath : '#' + hashPath);
+    }
+    return url;
+  }
+
+  // 대표 이미지 절대 HTTPS URL 계산 (1200x630 규격)
   getRepresentativeImageUrl() {
-    const loc = window.location;
-    if (loc.protocol === 'https:' || (loc.protocol === 'http:' && !loc.hostname.includes('localhost'))) {
-      return new URL('assets/og-image.png', loc.href).href;
+    if (window.HWAMOK_KAKAO_CONFIG && window.HWAMOK_KAKAO_CONFIG.OG_IMAGE_URL) {
+      return window.HWAMOK_KAKAO_CONFIG.OG_IMAGE_URL;
     }
-    // 로컬 테스트 환경 시 신뢰할 수 있는 CDN 고해상도 백업 이미지 (1200x630 규격)
-    return 'https://images.unsplash.com/photo-1511895426328-dc8714191300?w=1200&h=630&fit=crop&q=80';
+    return 'https://misu-create.github.io/hwamokhoe/assets/og-image.png';
+  }
+
+  // 공지 분류(카테고리) 정확한 한글 라벨 추출
+  getNoticeCategoryLabel(notice) {
+    if (!notice) return '일반 공지';
+    if (notice.categoryName) {
+      const name = notice.categoryName.trim();
+      if (name.includes('모임')) return '가족 모임 안내';
+      if (name.includes('여행')) return '여행 안내';
+      if (name.includes('회비')) return '회비 납부 안내';
+      if (name.includes('경조')) return '경조사 안내';
+      return name;
+    }
+    const catMap = {
+      meeting: '가족 모임 안내',
+      trip: '여행 안내',
+      fee: '회비 납부 안내',
+      family: '경조사 안내',
+      general: '일반 공지'
+    };
+    return catMap[notice.category] || '일반 공지';
   }
 
   // =========================================================================
-  // 5대 공유 통합 메서드
+  // 1. 카카오톡 공식 카드 공유 (sendDefault)
   // =========================================================================
   share(type = 'invite', extraData = {}) {
     const siteUrl = this.getCanonicalUrl();
@@ -132,18 +169,27 @@ class HwamokKakaoShare {
       buttonTitle = '모임 일정 확인하기';
       targetUrl = this.getCanonicalUrl('view-meeting');
     }
-    // ⑤ 공지사항 공유
+    // ⑤ 공지사항 공유 (실제 제목, 실제 요약, 정확한 분류, 공지 상세 링크)
     else if (type === 'notice') {
       const notice = extraData.notice;
       if (notice) {
-        title = `📢 [공지] ${notice.title}`;
-        description = `${notice.content.slice(0, 110)}${notice.content.length > 110 ? '...' : ''}\n\n등록일: ${notice.date} (총무 작성)`;
+        const catLabel = this.getNoticeCategoryLabel(notice);
+        title = `📢 [${catLabel}] ${notice.title}`;
+        
+        // 공지 본문의 줄바꿈을 공백으로 정리하여 카카오 카드 요약문으로 최적화 (글자수 제한 고려)
+        const cleanContent = (notice.content || '').replace(/\r?\n+/g, ' ').trim();
+        const snippet = cleanContent.length > 95 ? cleanContent.slice(0, 95) + '...' : cleanContent;
+        description = `${snippet}\n\n(등록일: ${notice.date} · 총무 작성)`;
+        
+        buttonTitle = '공지사항 전체 읽기';
+        // 공지 고유 ID를 전달하여 카카오 인앱 브라우저에서 바로 해당 공지가 열리도록 설정
+        targetUrl = this.getCanonicalUrl('view-notice', `notice=${encodeURIComponent(notice.id)}`);
       } else {
         title = '📢 화목회 가족 공지사항';
         description = '가족들에게 전하는 따뜻한 소식과 중요 안내를 확인하세요.';
+        buttonTitle = '공지사항 전체 읽기';
+        targetUrl = this.getCanonicalUrl('view-notice');
       }
-      buttonTitle = '공지사항 전체 읽기';
-      targetUrl = this.getCanonicalUrl('view-notice');
     }
 
     // 1단계: Kakao 공식 JavaScript SDK 공유 시도
@@ -174,22 +220,24 @@ class HwamokKakaoShare {
         });
         return;
       } catch (err) {
-        console.warn('카카오 SDK 공유 호출 실패:', err);
+        console.warn('[화목회] 카카오 SDK 공유 호출 실패:', err);
       }
     }
 
-    // 2단계: 스마트폰 브라우저 네이티브 공유 시트 (Android/iOS Safari)
-    const fullShareText = `${title}\n\n${description}\n\n👉 바로가기: ${targetUrl}`;
+    // 2단계: 공지사항 공유이고 SDK 실패 시, 바로 공지 전문 복사 실행
+    if (type === 'notice' && extraData.notice) {
+      this.copyNoticeFullText(extraData.notice);
+      return;
+    }
 
+    // 3단계: 일반 공유 스마트폰 네이티브 공유 시트
+    const fullShareText = `${title}\n\n${description}\n\n👉 바로가기: ${targetUrl}`;
     if (navigator.share) {
       navigator.share({
         title: title,
         text: `${title}\n\n${description}`,
         url: targetUrl
-      }).then(() => {
-        // 스마트폰 공유창 호출 성공
       }).catch((e) => {
-        // 사용자가 취소했거나 오류 시 클립보드 복사로 대체
         if (e.name !== 'AbortError') {
           this.executeClipboardCopy(title, fullShareText, targetUrl);
         }
@@ -197,20 +245,51 @@ class HwamokKakaoShare {
       return;
     }
 
-    // 3단계: 클립보드 복사 모드 (SDK 미연결 상태임을 솔직하게 안내)
+    // 4단계: 클립보드 복사 폴백
     this.executeClipboardCopy(title, fullShareText, targetUrl);
   }
 
-  // 클립보드 복사 및 솔직하고 친절한 알림 피드백
-  executeClipboardCopy(title, fullText, targetUrl) {
-    const isSdkMissing = !this.isSdkInitialized;
+  // =========================================================================
+  // 2. 공지 전문 복사 기능 (줄바꿈/문단 100% 보존, 임의 축약 없음)
+  // =========================================================================
+  copyNoticeFullText(notice) {
+    if (!notice) {
+      this.showToast('공지 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    const catLabel = this.getNoticeCategoryLabel(notice);
+    const noticeUrl = this.getCanonicalUrl('view-notice', `notice=${encodeURIComponent(notice.id)}`);
+
+    // 사용자 요구사항에 맞춘 정형화된 공지 전문 포맷
+    const fullText = 
+`[화목회 공지사항]
+
+분류: ${catLabel}
+제목: ${notice.title}
+
+내용:
+${notice.content}
+
+화목회 홈페이지:
+${noticeUrl}`;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(fullText).then(() => {
-        const guideMsg = isSdkMissing
-          ? '초대 링크와 안내 문구가 복사되었습니다!\n(카카오 앱키 미등록 상태)\n카카오톡 가족방에 [붙여넣기] 해주세요. 💬'
-          : '카카오톡 공유 문구가 복사되었습니다!\n화목회 가족방에 [붙여넣기] 해주세요. 💬';
-        this.showToast(guideMsg);
+        this.showToast('공지 내용이 복사되었습니다.\n카카오톡 가족방에 붙여넣어 전송해 주세요. 💬');
+      }).catch(() => {
+        this.showLegacyCopyModal(fullText, '공지 전문 복사 안내');
+      });
+    } else {
+      this.showLegacyCopyModal(fullText, '공지 전문 복사 안내');
+    }
+  }
+
+  // 클립보드 복사 실행 및 알림
+  executeClipboardCopy(title, fullText, targetUrl) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullText).then(() => {
+        this.showToast('안내 문구와 링크가 복사되었습니다!\n화목회 가족방에 [붙여넣기] 해주세요. 💬');
       }).catch(() => {
         this.showLegacyCopyModal(fullText);
       });
@@ -219,7 +298,8 @@ class HwamokKakaoShare {
     }
   }
 
-  showLegacyCopyModal(text) {
+  // 구형 브라우저 또는 클립보드 권한 없을 시 백업 팝업 모달
+  showLegacyCopyModal(text, modalTitle = '카카오톡 공유 안내') {
     const existing = document.getElementById('kakao-copy-modal');
     if (existing) existing.remove();
 
@@ -227,13 +307,13 @@ class HwamokKakaoShare {
       <div id="kakao-copy-modal" class="modal-overlay active">
         <div class="modal-box">
           <div class="modal-header">
-            <h3 class="modal-title">카카오톡 초대 문구</h3>
+            <h3 class="modal-title">${modalTitle}</h3>
             <button class="btn-close-modal" onclick="document.getElementById('kakao-copy-modal').remove()">✕</button>
           </div>
           <p style="font-size:17px; margin-bottom:12px; font-weight:700; color:#1e3a5f; line-height:1.5;">
             아래 내용을 복사하여 <b>'화목회 가족방'</b> 카카오톡 단체방에 전송해 주세요!
           </p>
-          <textarea id="copy-target-area" style="width:100%; height:180px; font-size:16px; padding:12px; border:2px solid #cbd5e1; border-radius:14px; background:#faf9f6; line-height:1.5;" readonly>${text}</textarea>
+          <textarea id="copy-target-area" style="width:100%; height:200px; font-size:16px; padding:12px; border:2px solid #cbd5e1; border-radius:14px; background:#faf9f6; line-height:1.6; white-space:pre-wrap;" readonly>${text}</textarea>
           <button id="btn-select-copy" class="btn-primary-action" style="margin-top:14px; background-color:#fee500; color:#191919; min-height:56px;">
             전체 선택 및 복사하기 📋
           </button>
@@ -246,7 +326,7 @@ class HwamokKakaoShare {
       const area = document.getElementById('copy-target-area');
       area.select();
       document.execCommand('copy');
-      alert('초대 문구가 복사되었습니다!\n카카오톡 화목회 가족방에 [붙여넣기] 하세요.');
+      alert('공지 내용이 복사되었습니다.\n카카오톡 가족방에 붙여넣어 전송해 주세요.');
       document.getElementById('kakao-copy-modal').remove();
     };
   }

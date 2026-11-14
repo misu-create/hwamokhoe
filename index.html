@@ -373,12 +373,21 @@
         <h3 id="modal-notice-title" class="modal-title">가족 소식</h3>
         <button class="btn-close-modal" onclick="window.hwamokApp.closeNoticeModal()">✕</button>
       </div>
+      <div id="modal-notice-category-badge" style="margin-bottom:8px;"></div>
       <div id="modal-notice-date" style="font-size:15px; color:var(--text-muted); margin-bottom:14px; font-weight:600;"></div>
       <div id="modal-notice-body" class="modal-content-body"></div>
-      <button class="btn-kakao-share" id="btn-modal-share" style="margin-bottom:0;">
-        <span class="kakao-icon">💬</span>
-        <span>이 공지 카카오톡 공유</span>
-      </button>
+      
+      <!-- 공지 공유 2종 버튼: [카카오톡 카드 공유] & [공지 전문 복사] -->
+      <div class="notice-modal-actions">
+        <button class="btn-kakao-share" id="btn-modal-share-card" style="margin-bottom:10px;">
+          <span class="kakao-icon">💬</span>
+          <span>카카오톡 카드 공유</span>
+        </button>
+        <button class="btn-copy-notice" id="btn-modal-copy-full">
+          <span style="font-size:22px;">📋</span>
+          <span>공지 전문 복사 (가족방 붙여넣기)</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -428,6 +437,7 @@
 
   <!-- 스크립트 로드 (GitHub Pages 상대경로 보장) -->
   <script src="./js/data-store.js"></script>
+  <script src="./js/kakao-config.js"></script>
   <script src="./js/kakao-share.js"></script>
   <script src="./js/app.js"></script>
 

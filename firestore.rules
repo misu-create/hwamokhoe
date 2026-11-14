@@ -77,6 +77,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // 탈퇴 및 해산 정산 내역
+    match /admin_settlements/{settlementId} {
+      allow read, write: if isAdmin();
+    }
+
     // 그 외 명시되지 않은 모든 경로는 기본 차단
     match /{document=**} {
       allow read, write: if false;
